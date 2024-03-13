@@ -433,21 +433,20 @@ Group *SortOnID(Group *head)
     return head;
 }
 
-void updateUserLeaderBoard(User **users)
+void updateUserLeaderBoard(User **Users,User **leader)
 {
-    User *curr = *users;
-    if (curr)
-    {
-        curr->points += 100;
+    User *curr = *leader;
+    int count = 3;
+    int points = 100;
+    while(count > 0 && curr){
+        User* usernode = findUser(*Users,curr->ID);
+        if(usernode)
+            usernode->points += points;
+        curr->points += points;
+        points -= 25;
+        count--;
         curr = curr->next;
     }
-    if (curr)
-    {
-        curr->points += 75;
-        curr = curr->next;
-    }
-    if (curr)
-        curr->points += 50;
 }
 
 Member *createMemberList(Member *memList)
@@ -548,11 +547,11 @@ void Create_group(Group **head, int groupid, char groupname[], int groupgoal, in
 }
 
 // c)
-void Get_top_3(User **leader)
+void Get_top_3(User** Users,User **leader)
 {
     int count = 1;
     User *ptr = *leader;
-    updateUserLeaderBoard(leader);
+    updateUserLeaderBoard(Users,leader);
     while (ptr && count <= 3)
     {
         printf("%d) ", count++);
@@ -615,8 +614,8 @@ void Generate_Leader_board(Group **head)
     while (ptr)
     {
         printf("\n");
-        printf("Rank : %d\n", count++);
-        printf("No.of steps completed : %lld", groupStepCount(ptr));
+        printf("Rank          | %d\n", count++);
+        printf("No.of steps   | %lld", groupStepCount(ptr));
         printGroup(ptr);
         ptr = ptr->next;
     }
@@ -624,26 +623,38 @@ void Generate_Leader_board(Group **head)
 }
 
 // f)
-void checkIndividualReward(User *leaderBoard, int id)
+void checkIndividualReward(User* Users,User *leaderBoard, int id)
 {
-    updateUserLeaderBoard(&leaderBoard);
+    updateUserLeaderBoard(&Users,&leaderBoard);
     int top = 3;
     Boolean found = FALSE;
     User *currLeader = leaderBoard;
-    while (top-- && found == FALSE)
+    while (currLeader && found == FALSE)
     {
         if (currLeader->ID == id)
             found = TRUE;
-        else
+        else{
             currLeader = currLeader->next;
+            top--;
+        }
     }
+    User *Usernode = findUser(Users,id);
 
+    if(Usernode == NULL)
+        found = FALSE;
+    else
+        found = TRUE;
+    
     if (!found)
-        printf("\nUserID-%d is not ranked among top 3\n", id);
+        printf("\nUserID-%d doesn't exists\n", id);
     else
     {
-        printUser(currLeader);
-        printf("\nReward    |  %d pts\n\n", currLeader->points);
+        printUser(Usernode);
+        if(top > 0){
+            printf("\n%s ranks among top 3", Usernode->name);
+            printf("\nRank   : %d",4 - top);
+        }
+        printf("\nReward :  %d pts\n\n", Usernode->points);
     }
 }
 
@@ -667,11 +678,32 @@ void deleteUser(User **Users, Group **groups, User **leader, int id)
 
     if (found)
     {
+        User *ptr = *leader;
+        User *prevptr = NULL;
+        Boolean Foundinleader = FALSE;
+        while (!Foundinleader && ptr)
+        {
+            if (ptr->ID == id)
+                Foundinleader = TRUE;
+            else
+            {
+                prevptr = ptr;
+                ptr = ptr->next;
+            }
+        }
+        if (Foundinleader)
+        {
+            if (prevptr)
+                prevptr->next = ptr->next;
+            else
+                *leader = ptr->next;
+            ptr->next = NULL;
+            free(ptr);
+        }
         if (currUser->inGroup == YES)
         {
             found = FALSE;
             Group *currGroup = *groups;
-            Group *prevGroup = NULL;
             while (currGroup && found == FALSE)
             {
                 Member *prevMember = NULL;
@@ -694,24 +726,7 @@ void deleteUser(User **Users, Group **groups, User **leader, int id)
                         currGroup->MemberDetails = currGroup->MemberDetails->next;
                     free(currMember);
                 }
-                else
-                {
-                    prevGroup = currGroup;
-                    currGroup = currGroup->next;
-                }
-            }
-            if (found)
-            {
-                if (currGroup->MemberDetails == NULL)
-                {
-                    if (prevGroup)
-                        prevGroup->next = currGroup->next;
-                    else
-                        *groups = currGroup->next;
-                    printf("As group contains a single user who is deleted\n");
-                    printf("Group - %s is also deleted\n", currGroup->groupName);
-                    free(currGroup);
-                }
+                currGroup = currGroup->next;
             }
         }
         if (prevUser)
@@ -1220,7 +1235,7 @@ int main()
             break;
         case 3:
             printf("\nTop 3 users ranked based on no. of steps :\n\n");
-            Get_top_3(&userleaderBoard);
+            Get_top_3(&users,&userleaderBoard);
             break;
         case 4:
             printf("\nFurnish the following details to check group achievement \n");
@@ -1236,7 +1251,7 @@ int main()
             printf("\nFurnish The following details to check individual rewards  \n");
             printf("\nEnter Id : ");
             scanf("%d", &id);
-            checkIndividualReward(userleaderBoard, id);
+            checkIndividualReward(users,userleaderBoard, id);
             break;
         case 7:
             printf("\nFurnish The following details to delete an Individual  \n");
